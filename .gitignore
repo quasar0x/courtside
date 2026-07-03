@@ -1,0 +1,14 @@
+# compiled binaries
+/bin/
+*.exe
+
+# go
+vendor/
+
+.env
+*.env
+*.pem
+*.key
+
+# os noise
+.DS_Store
