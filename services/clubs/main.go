@@ -3,15 +3,18 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
-	"sync"
 	"syscall"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Member struct {
@@ -29,52 +32,88 @@ type Club struct {
 	MemberIDs []string `json:"member_ids"`
 }
 
-// EnrichedClub is a Club with its members resolved from the members service.
 type EnrichedClub struct {
 	Club
 	Members []Member `json:"members"`
 }
 
-type store struct {
-	mu    sync.RWMutex
-	clubs map[string]Club
-	seq   int
+type store struct{ pool *pgxpool.Pool }
+
+func newStore(ctx context.Context, pool *pgxpool.Pool) (*store, error) {
+	s := &store{pool: pool}
+	if _, err := pool.Exec(ctx, `
+CREATE TABLE IF NOT EXISTS clubs (
+    id         SERIAL PRIMARY KEY,
+    name       TEXT NOT NULL,
+    city       TEXT NOT NULL,
+    region     TEXT NOT NULL,
+    member_ids TEXT[] NOT NULL DEFAULT '{}'
+)`); err != nil {
+		return nil, fmt.Errorf("create schema: %w", err)
+	}
+	var count int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM clubs`).Scan(&count); err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		_, _ = s.create(ctx, Club{Name: "Riverside FC", City: "London", Region: "eu-west", MemberIDs: []string{"1", "2"}})
+		_, _ = s.create(ctx, Club{Name: "Bay Area Hoops", City: "San Francisco", Region: "us-east", MemberIDs: []string{"2"}})
+		slog.Info("seeded initial clubs")
+	}
+	return s, nil
 }
 
-func newStore() *store {
-	s := &store{clubs: make(map[string]Club)}
-	s.create(Club{Name: "Riverside FC", City: "London", Region: "eu-west", MemberIDs: []string{"1", "2"}})
-	s.create(Club{Name: "Bay Area Hoops", City: "San Francisco", Region: "us-east", MemberIDs: []string{"2"}})
-	return s
+func (s *store) create(ctx context.Context, c Club) (Club, error) {
+	var id int
+	err := s.pool.QueryRow(ctx,
+		`INSERT INTO clubs (name,city,region,member_ids) VALUES ($1,$2,$3,$4) RETURNING id`,
+		c.Name, c.City, c.Region, c.MemberIDs).Scan(&id)
+	if err != nil {
+		return Club{}, err
+	}
+	c.ID = strconv.Itoa(id)
+	return c, nil
 }
 
-func (s *store) create(c Club) Club {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.seq++
-	c.ID = strconv.Itoa(s.seq)
-	s.clubs[c.ID] = c
-	return c
-}
-
-func (s *store) list() []Club {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]Club, 0, len(s.clubs))
-	for _, c := range s.clubs {
+func (s *store) list(ctx context.Context) ([]Club, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id,name,city,region,member_ids FROM clubs ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Club{}
+	for rows.Next() {
+		var id int
+		var c Club
+		if err := rows.Scan(&id, &c.Name, &c.City, &c.Region, &c.MemberIDs); err != nil {
+			return nil, err
+		}
+		c.ID = strconv.Itoa(id)
 		out = append(out, c)
 	}
-	return out
+	return out, rows.Err()
 }
 
-func (s *store) get(id string) (Club, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	c, ok := s.clubs[id]
-	return c, ok
+func (s *store) get(ctx context.Context, idStr string) (Club, bool, error) {
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return Club{}, false, nil
+	}
+	var c Club
+	var iid int
+	err = s.pool.QueryRow(ctx,
+		`SELECT id,name,city,region,member_ids FROM clubs WHERE id=$1`, id).
+		Scan(&iid, &c.Name, &c.City, &c.Region, &c.MemberIDs)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Club{}, false, nil
+		}
+		return Club{}, false, err
+	}
+	c.ID = strconv.Itoa(iid)
+	return c, true, nil
 }
 
-// membersClient talks to the members service over HTTP.
 type membersClient struct {
 	baseURL string
 	http    *http.Client
@@ -99,11 +138,27 @@ func (mc *membersClient) getMember(ctx context.Context, id string) (Member, erro
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+	ctx := context.Background()
 
-	st := newStore()
+	pool, err := pgxpool.New(ctx, buildDSN())
+	if err != nil {
+		slog.Error("cannot create db pool", "err", err)
+		os.Exit(1)
+	}
+	defer pool.Close()
+
+	if err := waitForDB(ctx, pool); err != nil {
+		slog.Error("database never became ready", "err", err)
+		os.Exit(1)
+	}
+
+	st, err := newStore(ctx, pool)
+	if err != nil {
+		slog.Error("store init failed", "err", err)
+		os.Exit(1)
+	}
+
 	port := getenv("PORT", "8080")
-
-	// Where to find the members service. Defaults to in-cluster DNS.
 	mc := &membersClient{
 		baseURL: getenv("MEMBERS_URL", "http://members.courtside:8080"),
 		http:    &http.Client{Timeout: 3 * time.Second},
@@ -117,12 +172,22 @@ func main() {
 	})
 
 	mux.HandleFunc("GET /clubs", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, st.list())
+		cs, err := st.list(r.Context())
+		if err != nil {
+			slog.Error("list failed", "err", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+			return
+		}
+		writeJSON(w, http.StatusOK, cs)
 	})
 
-	// The cross-service call: resolve each member via the members service.
 	mux.HandleFunc("GET /clubs/{id}", func(w http.ResponseWriter, r *http.Request) {
-		c, ok := st.get(r.PathValue("id"))
+		c, ok, err := st.get(r.Context(), r.PathValue("id"))
+		if err != nil {
+			slog.Error("get failed", "err", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+			return
+		}
 		if !ok {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "club not found"})
 			return
@@ -145,7 +210,12 @@ func main() {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
 			return
 		}
-		created := st.create(c)
+		created, err := st.create(r.Context(), c)
+		if err != nil {
+			slog.Error("create failed", "err", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+			return
+		}
 		slog.Info("club created", "id", created.ID, "region", created.Region)
 		writeJSON(w, http.StatusCreated, created)
 	})
@@ -169,9 +239,30 @@ func main() {
 	<-stop
 	slog.Info("shutting down")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_ = srv.Shutdown(ctx)
+	_ = srv.Shutdown(shCtx)
+}
+
+func buildDSN() string {
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		getenv("PGUSER", "courtside"),
+		os.Getenv("PGPASSWORD"),
+		getenv("PGHOST", "postgres.courtside"),
+		getenv("PGPORT", "5432"),
+		getenv("PGDATABASE", "clubs"),
+	)
+}
+
+func waitForDB(ctx context.Context, pool *pgxpool.Pool) error {
+	for i := 0; i < 30; i++ {
+		if err := pool.Ping(ctx); err == nil {
+			return nil
+		}
+		slog.Info("waiting for database...", "attempt", i+1)
+		time.Sleep(2 * time.Second)
+	}
+	return errors.New("timed out waiting for database")
 }
 
 func getenv(k, def string) string {
