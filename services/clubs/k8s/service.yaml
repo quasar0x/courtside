@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: clubs
+  namespace: courtside
+  labels:
+    app: clubs
+spec:
+  selector:
+    app: clubs
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
