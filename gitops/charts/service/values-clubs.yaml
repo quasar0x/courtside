@@ -1,0 +1,25 @@
+name: clubs
+image:
+  repository: courtside/clubs
+  tag: "0.2.0"
+env:
+  - name: PORT
+    value: "8080"
+  - name: MEMBERS_URL
+    value: "http://members.courtside:8080"
+  - name: PGHOST
+    value: "postgres.courtside"
+  - name: PGPORT
+    value: "5432"
+  - name: PGDATABASE
+    value: "clubs"
+  - name: PGUSER
+    valueFrom:
+      secretKeyRef:
+        name: postgres
+        key: POSTGRES_USER
+  - name: PGPASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: postgres
+        key: POSTGRES_PASSWORD
