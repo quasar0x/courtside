@@ -1,0 +1,11 @@
+name: notifications
+image:
+  repository: courtside/notifications
+  tag: "0.1.0"
+env:
+  - name: PORT
+    value: "8080"
+  - name: KAFKA_BROKER
+    value: "kafka.courtside:9092"
+  - name: REDIS_ADDR
+    value: "redis.courtside:6379"

@@ -1,0 +1,16 @@
+# Base defaults. Each service overrides these via its own values file.
+name: placeholder
+image:
+  repository: ""
+  tag: "latest"
+  pullPolicy: IfNotPresent
+replicas: 1
+port: 8080
+env: []
+resources:
+  requests:
+    cpu: 10m
+    memory: 24Mi
+  limits:
+    cpu: 100m
+    memory: 96Mi
