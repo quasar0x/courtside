@@ -21,3 +21,5 @@ env:
       secretKeyRef:
         name: postgres
         key: POSTGRES_PASSWORD
+
+replicas: 2
