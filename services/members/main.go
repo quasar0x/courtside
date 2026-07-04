@@ -3,14 +3,18 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
-	"sync"
 	"syscall"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Member struct {
@@ -20,51 +24,105 @@ type Member struct {
 	Region string `json:"region"`
 }
 
-type store struct {
-	mu      sync.RWMutex
-	members map[string]Member
-	seq     int
+type store struct{ pool *pgxpool.Pool }
+
+func newStore(ctx context.Context, pool *pgxpool.Pool) (*store, error) {
+	s := &store{pool: pool}
+	if _, err := pool.Exec(ctx, `
+CREATE TABLE IF NOT EXISTS members (
+    id     SERIAL PRIMARY KEY,
+    name   TEXT NOT NULL,
+    email  TEXT NOT NULL,
+    region TEXT NOT NULL
+)`); err != nil {
+		return nil, fmt.Errorf("create schema: %w", err)
+	}
+	var count int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM members`).Scan(&count); err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		_, _ = s.create(ctx, Member{Name: "Ada Lovelace", Email: "ada@example.com", Region: "eu-west"})
+		_, _ = s.create(ctx, Member{Name: "Grace Hopper", Email: "grace@example.com", Region: "us-east"})
+		slog.Info("seeded initial members")
+	}
+	return s, nil
 }
 
-func newStore() *store {
-	s := &store{members: make(map[string]Member)}
-	s.create(Member{Name: "Ada Lovelace", Email: "ada@example.com", Region: "eu-west"})
-	s.create(Member{Name: "Grace Hopper", Email: "grace@example.com", Region: "us-east"})
-	return s
+func (s *store) create(ctx context.Context, m Member) (Member, error) {
+	var id int
+	err := s.pool.QueryRow(ctx,
+		`INSERT INTO members (name,email,region) VALUES ($1,$2,$3) RETURNING id`,
+		m.Name, m.Email, m.Region).Scan(&id)
+	if err != nil {
+		return Member{}, err
+	}
+	m.ID = strconv.Itoa(id)
+	return m, nil
 }
 
-func (s *store) create(m Member) Member {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.seq++
-	m.ID = strconv.Itoa(s.seq)
-	s.members[m.ID] = m
-	return m
-}
-
-func (s *store) list() []Member {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]Member, 0, len(s.members))
-	for _, m := range s.members {
+func (s *store) list(ctx context.Context) ([]Member, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id,name,email,region FROM members ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Member{}
+	for rows.Next() {
+		var id int
+		var m Member
+		if err := rows.Scan(&id, &m.Name, &m.Email, &m.Region); err != nil {
+			return nil, err
+		}
+		m.ID = strconv.Itoa(id)
 		out = append(out, m)
 	}
-	return out
+	return out, rows.Err()
 }
 
-func (s *store) get(id string) (Member, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	m, ok := s.members[id]
-	return m, ok
+func (s *store) get(ctx context.Context, idStr string) (Member, bool, error) {
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return Member{}, false, nil
+	}
+	var m Member
+	var iid int
+	err = s.pool.QueryRow(ctx,
+		`SELECT id,name,email,region FROM members WHERE id=$1`, id).
+		Scan(&iid, &m.Name, &m.Email, &m.Region)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Member{}, false, nil
+		}
+		return Member{}, false, err
+	}
+	m.ID = strconv.Itoa(iid)
+	return m, true, nil
 }
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+	ctx := context.Background()
 
-	st := newStore()
+	pool, err := pgxpool.New(ctx, buildDSN())
+	if err != nil {
+		slog.Error("cannot create db pool", "err", err)
+		os.Exit(1)
+	}
+	defer pool.Close()
+
+	if err := waitForDB(ctx, pool); err != nil {
+		slog.Error("database never became ready", "err", err)
+		os.Exit(1)
+	}
+
+	st, err := newStore(ctx, pool)
+	if err != nil {
+		slog.Error("store init failed", "err", err)
+		os.Exit(1)
+	}
+
 	port := getenv("PORT", "8080")
-
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -73,11 +131,22 @@ func main() {
 	})
 
 	mux.HandleFunc("GET /members", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, st.list())
+		ms, err := st.list(r.Context())
+		if err != nil {
+			slog.Error("list failed", "err", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+			return
+		}
+		writeJSON(w, http.StatusOK, ms)
 	})
 
 	mux.HandleFunc("GET /members/{id}", func(w http.ResponseWriter, r *http.Request) {
-		m, ok := st.get(r.PathValue("id"))
+		m, ok, err := st.get(r.Context(), r.PathValue("id"))
+		if err != nil {
+			slog.Error("get failed", "err", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+			return
+		}
 		if !ok {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "member not found"})
 			return
@@ -91,7 +160,12 @@ func main() {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
 			return
 		}
-		created := st.create(m)
+		created, err := st.create(r.Context(), m)
+		if err != nil {
+			slog.Error("create failed", "err", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+			return
+		}
 		slog.Info("member created", "id", created.ID, "region", created.Region)
 		writeJSON(w, http.StatusCreated, created)
 	})
@@ -115,9 +189,30 @@ func main() {
 	<-stop
 	slog.Info("shutting down")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_ = srv.Shutdown(ctx)
+	_ = srv.Shutdown(shCtx)
+}
+
+func buildDSN() string {
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		getenv("PGUSER", "courtside"),
+		os.Getenv("PGPASSWORD"),
+		getenv("PGHOST", "postgres.courtside"),
+		getenv("PGPORT", "5432"),
+		getenv("PGDATABASE", "members"),
+	)
+}
+
+func waitForDB(ctx context.Context, pool *pgxpool.Pool) error {
+	for i := 0; i < 30; i++ {
+		if err := pool.Ping(ctx); err == nil {
+			return nil
+		}
+		slog.Info("waiting for database...", "attempt", i+1)
+		time.Sleep(2 * time.Second)
+	}
+	return errors.New("timed out waiting for database")
 }
 
 func getenv(k, def string) string {

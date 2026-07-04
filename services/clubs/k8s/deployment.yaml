@@ -23,7 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: clubs
-          image: courtside/clubs:0.1.0
+          image: courtside/clubs:0.2.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -33,13 +33,29 @@ spec:
               value: "8080"
             - name: MEMBERS_URL
               value: "http://members.courtside:8080"
+            - name: PGHOST
+              value: "postgres.courtside"
+            - name: PGPORT
+              value: "5432"
+            - name: PGDATABASE
+              value: "clubs"
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: POSTGRES_PASSWORD
           resources:
             requests:
               cpu: 10m
-              memory: 16Mi
+              memory: 24Mi
             limits:
               cpu: 100m
-              memory: 64Mi
+              memory: 96Mi
           livenessProbe:
             httpGet:
               path: /healthz
