@@ -4,3 +4,4 @@ metadata:
   name: courtside
   labels:
     name: courtside
+    istio-injection: enabled
