@@ -22,4 +22,4 @@ env:
         name: postgres
         key: POSTGRES_PASSWORD
 
-replicas: 2
+replicas: 1
