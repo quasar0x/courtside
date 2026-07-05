@@ -1,0 +1,18 @@
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: members
+  namespace: courtside
+spec:
+  host: members.courtside.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 50
+        maxRequestsPerConnection: 10
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 10s
+      baseEjectionTime: 30s
