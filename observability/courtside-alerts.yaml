@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: courtside-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: courtside.rules
+      rules:
+        - alert: CourtsideHigh4xxRate
+          expr: sum(rate(istio_requests_total{destination_service_namespace="courtside", response_code=~"4.."}[1m])) > 0.2
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Elevated 4xx rate in courtside services"
+            description: "4xx response rate has been above 0.2 req/s for over 1 minute."

@@ -15,6 +15,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+
+	"github.com/quasar0x/courtside/pkg/telemetry"
 )
 
 type Member struct {
@@ -140,13 +143,18 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	ctx := context.Background()
 
+	if shutdown, err := telemetry.InitTracer(ctx, "clubs", getenv("OTEL_ENDPOINT", "tempo.monitoring.svc.cluster.local:4318")); err != nil {
+		slog.Error("tracer init failed", "err", err)
+	} else {
+		defer func() { _ = shutdown(context.Background()) }()
+	}
+
 	pool, err := pgxpool.New(ctx, buildDSN())
 	if err != nil {
 		slog.Error("cannot create db pool", "err", err)
 		os.Exit(1)
 	}
 	defer pool.Close()
-
 	if err := waitForDB(ctx, pool); err != nil {
 		slog.Error("database never became ready", "err", err)
 		os.Exit(1)
@@ -161,7 +169,10 @@ func main() {
 	port := getenv("PORT", "8080")
 	mc := &membersClient{
 		baseURL: getenv("MEMBERS_URL", "http://members.courtside:8080"),
-		http:    &http.Client{Timeout: 3 * time.Second},
+		http: &http.Client{
+			Timeout:   3 * time.Second,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
+		},
 	}
 
 	mux := http.NewServeMux()
@@ -222,7 +233,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:              ":" + port,
-		Handler:           logRequests(mux),
+		Handler:           otelhttp.NewHandler(logRequests(mux), "clubs"),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

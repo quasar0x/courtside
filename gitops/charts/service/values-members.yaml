@@ -1,7 +1,7 @@
 name: members
 image:
   repository: courtside/members
-  tag: "0.2.0"
+  tag: "0.3.0"
 env:
   - name: PORT
     value: "8080"
