@@ -1,0 +1,16 @@
+server:
+  standalone:
+    enabled: true
+  dataStorage:
+    enabled: true
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+injector:
+  enabled: false
+ui:
+  enabled: true
