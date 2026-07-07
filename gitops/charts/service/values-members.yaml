@@ -14,12 +14,12 @@ env:
   - name: PGUSER
     valueFrom:
       secretKeyRef:
-        name: postgres
+        name: postgres-from-vault
         key: POSTGRES_USER
   - name: PGPASSWORD
     valueFrom:
       secretKeyRef:
-        name: postgres
+        name: postgres-from-vault
         key: POSTGRES_PASSWORD
 
 replicas: 1
