@@ -11,4 +11,4 @@ vendor/
 *.key
 
 # os noise
-.DS_Store
+.DS_Storeplatform/cosign/cosign.key
