@@ -11,6 +11,14 @@ spec:
   http:
     - match:
         - uri:
+            prefix: /memberships
+      route:
+        - destination:
+            host: memberships.courtside.svc.cluster.local
+            port:
+              number: 8080
+    - match:
+        - uri:
             prefix: /members
       route:
         - destination:
@@ -23,14 +31,6 @@ spec:
       route:
         - destination:
             host: clubs.courtside.svc.cluster.local
-            port:
-              number: 8080
-    - match:
-        - uri:
-            prefix: /memberships
-      route:
-        - destination:
-            host: memberships.courtside.svc.cluster.local
             port:
               number: 8080
     - match:
