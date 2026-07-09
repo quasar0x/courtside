@@ -256,12 +256,13 @@ func main() {
 }
 
 func buildDSN() string {
-	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		getenv("PGUSER", "courtside"),
 		os.Getenv("PGPASSWORD"),
 		getenv("PGHOST", "postgres.courtside"),
 		getenv("PGPORT", "5432"),
 		getenv("PGDATABASE", "clubs"),
+		getenv("PGSSLMODE", "require"),
 	)
 }
 
