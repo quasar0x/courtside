@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: us-members
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/quasar0x/courtside.git
+    targetRevision: main
+    path: gitops/base/service
+    helm:
+      valueFiles:
+        - values-members.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: courtside
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
