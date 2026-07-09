@@ -1,25 +1,36 @@
 name: clubs
 image:
-  repository: courtside/clubs
-  tag: "0.3.0"
+  repository: ghcr.io/quasar0x/courtside-clubs
+  tag: "4c2e3f5cac3b9ab1b270416670cbd4926baf3471"
 env:
   - name: PORT
     value: "8080"
   - name: MEMBERS_URL
     value: "http://members.courtside:8080"
   - name: PGHOST
-    value: "postgres.courtside"
+    valueFrom:
+      secretKeyRef:
+        name: postgres
+        key: PGHOST
   - name: PGPORT
-    value: "5432"
-  - name: PGDATABASE
-    value: "clubs"
+    valueFrom:
+      secretKeyRef:
+        name: postgres
+        key: PGPORT
   - name: PGUSER
     valueFrom:
       secretKeyRef:
-        name: postgres-from-vault
-        key: POSTGRES_USER
+        name: postgres
+        key: PGUSER
   - name: PGPASSWORD
     valueFrom:
       secretKeyRef:
-        name: postgres-from-vault
-        key: POSTGRES_PASSWORD
+        name: postgres
+        key: PGPASSWORD
+  - name: PGSSLMODE
+    valueFrom:
+      secretKeyRef:
+        name: postgres
+        key: PGSSLMODE
+  - name: PGDATABASE
+    value: "clubs"
