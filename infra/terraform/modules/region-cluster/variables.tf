@@ -24,8 +24,14 @@ variable "node_size" {
   default     = "s-4vcpu-8gb"
 }
 
-variable "node_count" {
-  description = "Number of worker nodes"
+variable "min_nodes" {
+  description = "Minimum worker nodes (cluster autoscaler floor)"
+  type        = number
+  default     = 3
+}
+
+variable "max_nodes" {
+  description = "Maximum worker nodes (cluster autoscaler ceiling)"
   type        = number
   default     = 3
 }

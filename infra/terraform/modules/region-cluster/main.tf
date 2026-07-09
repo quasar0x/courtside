@@ -11,7 +11,9 @@ resource "digitalocean_kubernetes_cluster" "this" {
   node_pool {
     name       = "${var.name}-workers"
     size       = var.node_size
-    node_count = var.node_count
+    auto_scale = true
+    min_nodes  = var.min_nodes
+    max_nodes  = var.max_nodes
   }
 }
 
