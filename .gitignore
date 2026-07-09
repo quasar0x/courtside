@@ -12,3 +12,15 @@ vendor/
 
 # os noise
 .DS_Storeplatform/cosign/cosign.key
+
+# terraform
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/kubeconfig*.yaml
+
+# terraform
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/kubeconfig*.yaml
