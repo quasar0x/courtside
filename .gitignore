@@ -24,3 +24,7 @@ infra/terraform/.terraform/
 infra/terraform/*.tfstate
 infra/terraform/*.tfstate.*
 infra/terraform/kubeconfig*.yaml
+
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*

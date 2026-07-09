@@ -1,13 +1,21 @@
-variable "cluster_name" {
-  description = "DOKS cluster name"
+variable "name" {
+  description = "Cluster name (e.g. courtside-us)"
   type        = string
-  default     = "courtside"
 }
 
 variable "region" {
   description = "DigitalOcean region slug"
   type        = string
-  default     = "nyc3"
+}
+
+variable "vpc_id" {
+  description = "VPC to place the cluster in (from the data state)"
+  type        = string
+}
+
+variable "db_cluster_id" {
+  description = "Managed DB cluster id to grant this cluster access to"
+  type        = string
 }
 
 variable "node_size" {
