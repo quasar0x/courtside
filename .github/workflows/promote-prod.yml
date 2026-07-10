@@ -1,0 +1,49 @@
+name: promote-prod
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Build SHA to promote (blank = current staging build)"
+        required: false
+        default: ""
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITOPS_PAT }}
+      - name: Resolve tag to promote
+        id: tag
+        run: |
+          TAG="${{ github.event.inputs.sha }}"
+          if [ -z "$TAG" ]; then
+            TAG=$(grep -m1 '^  tag:' gitops/base/service/values-staging-members.yaml | sed 's/.*"\(.*\)".*/\1/')
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Promoting build: $TAG"
+      - name: Bump prod image tags
+        run: |
+          for svc in members clubs memberships billing notifications; do
+            sed -i "s|^  tag: .*|  tag: \"${{ steps.tag.outputs.tag }}\"|" gitops/base/service/values-$svc.yaml
+          done
+      - name: Open auto-merge prod promotion PR
+        env:
+          GH_TOKEN: ${{ secrets.GITOPS_PAT }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          SHORT="${TAG:0:7}"
+          BRANCH="ci/promote-prod-${SHORT}"
+          git config user.name "courtside-ci"
+          git config user.email "ci@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          for svc in members clubs memberships billing notifications; do
+            git add gitops/base/service/values-$svc.yaml
+          done
+          git commit -m "release: promote ${SHORT} to production"
+          git push origin "$BRANCH"
+          gh pr create --base main --head "$BRANCH" \
+            --title "release: promote ${SHORT} to production" \
+            --body "Approved production promotion of ${TAG}."
+          gh pr merge "$BRANCH" --auto --merge
