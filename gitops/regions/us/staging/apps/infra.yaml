@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: us-staging-infra
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/quasar0x/courtside.git
+    targetRevision: main
+    path: gitops/base/config
+    directory:
+      recurse: true
+      exclude: 'istio/*'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: courtside-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

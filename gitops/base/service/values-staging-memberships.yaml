@@ -1,6 +1,6 @@
-name: billing
+name: memberships
 image:
-  repository: ghcr.io/quasar0x/courtside-billing
+  repository: ghcr.io/quasar0x/courtside-memberships
   tag: "4c2e3f5cac3b9ab1b270416670cbd4926baf3471"
 env:
   - name: PORT
@@ -31,10 +31,8 @@ env:
         name: postgres
         key: PGSSLMODE
   - name: PGDATABASE
-    value: "billing"
+    value: "memberships_staging"
   - name: KAFKA_BROKER
     value: "kafka:9092"
-  - name: REDIS_ADDR
-    value: "redis:6379"
   - name: OTEL_ENDPOINT
     value: "otel-collector.monitoring:4318"

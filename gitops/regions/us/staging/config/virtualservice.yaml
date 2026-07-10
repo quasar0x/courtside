@@ -1,0 +1,51 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: courtside-staging-routes
+  namespace: courtside-staging
+spec:
+  hosts:
+    - "staging.courtside"
+  gateways:
+    - courtside-staging-gateway
+  http:
+    - match:
+        - uri:
+            prefix: /memberships
+      route:
+        - destination:
+            host: memberships.courtside-staging.svc.cluster.local
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /members
+      route:
+        - destination:
+            host: members.courtside-staging.svc.cluster.local
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /clubs
+      route:
+        - destination:
+            host: clubs.courtside-staging.svc.cluster.local
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /invoices
+      route:
+        - destination:
+            host: billing.courtside-staging.svc.cluster.local
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /notifications
+      route:
+        - destination:
+            host: notifications.courtside-staging.svc.cluster.local
+            port:
+              number: 8080
