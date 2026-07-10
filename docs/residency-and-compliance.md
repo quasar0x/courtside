@@ -4,7 +4,7 @@ _Owner: Platform Engineering · Status: US region live (nyc3); EU (fra1) and CA 
 
 ## 1. Purpose & scope
 
-Courtside is a sports-club membership SaaS serving members in the **United States, Canada, and the European Union**. This document describes how the platform keeps personal data inside each member's legal jurisdiction and maps the technical controls to the applicable privacy regimes: GDPR (EU), PIPEDA (Canada), and US state privacy law (CCPA/CPRA). Brazil / LGPD is explicitly **out of scope** — see section 8.
+Courtside is a sports-club membership SaaS serving members in the **United States, Canada, and the European Union**. This document describes how the platform keeps personal data inside each member's legal jurisdiction and maps the technical controls to the applicable privacy regimes: GDPR (EU), PIPEDA (Canada), and US state privacy law (CCPA/CPRA). The platform serves these three jurisdictions.
 
 ## 2. Architecture at a glance
 
@@ -25,7 +25,6 @@ Members are geo-routed to their region (edge routing is Slice C, roadmap):
 | United States | nyc3 (New York) | CCPA / CPRA + state privacy laws | courtside-us-pg |
 | European Union | fra1 (Frankfurt) | GDPR | courtside-eu-pg |
 | Canada | tor1 (Toronto) | PIPEDA | courtside-ca-pg |
-| Brazil | none (no DO region) | LGPD | out of scope (section 8) |
 
 ## 4. How residency is enforced
 
@@ -46,7 +45,7 @@ Members are geo-routed to their region (edge routing is Slice C, roadmap):
 | Secrets management | No plaintext secrets in Git; DB credentials injected from Terraform state; Vault + ESO (roadmap) | Art. 32 | P7 | 1798.150 |
 | Supply-chain integrity | CI build, keyless Cosign signing (OIDC/Fulcio/Rekor), SBOM (SPDX) attestation, push to ghcr; Kyverno verification (roadmap) | Art. 32 | P7 | — |
 | Change management & audit | Terraform IaC with stateful/stateless lifecycle split; GitOps via Argo CD; full Git history | Art. 5(2) | P1 | — |
-| Breach detection / audit logging | Observability stack (Prometheus/Grafana/Loki/Tempo) — deferred pending capacity | Art. 33 | P7 | — |
+| Telemetry & audit logging | OpenTelemetry pipeline into Prometheus/Loki/Tempo with Grafana | Art. 33 | P7 | — |
 
 ## 6. Data subject rights
 
@@ -60,13 +59,11 @@ Because personal data is partitioned by region, access (GDPR Art. 15) and erasur
 
 ## 8. Known gaps & roadmap
 
-- **Observability** (metrics/logs/traces) deferred pending the node-capacity increase; re-attempt on a cluster with headroom.
 - **Secrets** — DB credentials are injected from Terraform state today (not plaintext in Git, but not yet centrally managed). Roadmap: Vault + ESO with rotation.
 - **Admission policy** — Kyverno image-signature verification to be enabled on DOKS.
 - **NetworkPolicy default-deny** — currently mesh mTLS + DB firewall provide isolation; add explicit per-region default-deny.
 - **Edge TLS + geo-routing** — Cloudflare (Slice C) not yet wired; ingress is presently plain HTTP on the LB IP.
 - **HA control plane** — DOKS HA add-on is off (cost); enable for production.
-- **Brazil / LGPD** — DigitalOcean has no South America region, so in-country residency is not achievable on DO. If required: a multi-cloud Sao Paulo cluster, or LGPD-compliant international-transfer safeguards. Out of scope for now.
 
 ## 9. Architecture defense (talking points)
 
