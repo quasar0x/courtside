@@ -1,5 +1,4 @@
 name: ci
-
 on:
   push:
     branches: [main]
@@ -9,12 +8,10 @@ on:
       - 'go.sum'
       - '.github/workflows/ci.yml'
   workflow_dispatch:
-
 permissions:
   contents: read
   packages: write
   id-token: write
-
 jobs:
   build-sign-attest:
     runs-on: ubuntu-latest
@@ -38,6 +35,11 @@ jobs:
           file: services/${{ matrix.service }}/Dockerfile
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/courtside-${{ matrix.service }}:${{ github.sha }}
+      - name: Trivy image scan
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+          trivy image --severity HIGH,CRITICAL --exit-code 1 --ignore-unfixed \
+            ghcr.io/${{ github.repository_owner }}/courtside-${{ matrix.service }}@${{ steps.build.outputs.digest }}
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
       - name: Keyless sign (GitHub OIDC -> Fulcio -> Rekor)
@@ -57,3 +59,32 @@ jobs:
         with:
           name: sbom-${{ matrix.service }}
           path: sbom.spdx.json
+
+  promote-staging:
+    needs: build-sign-attest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITOPS_PAT }}
+      - name: Bump staging image tags to this build
+        run: |
+          for svc in members clubs memberships billing notifications; do
+            sed -i "s|^  tag: .*|  tag: \"${GITHUB_SHA}\"|" gitops/base/service/values-staging-$svc.yaml
+          done
+      - name: Open auto-merge promotion PR
+        env:
+          GH_TOKEN: ${{ secrets.GITOPS_PAT }}
+        run: |
+          SHORT="${GITHUB_SHA:0:7}"
+          BRANCH="ci/promote-staging-${SHORT}"
+          git config user.name "courtside-ci"
+          git config user.email "ci@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add gitops/base/service/values-staging-*.yaml
+          git commit -m "ci: promote ${SHORT} to staging"
+          git push origin "$BRANCH"
+          gh pr create --base main --head "$BRANCH" \
+            --title "ci: promote ${SHORT} to staging" \
+            --body "Automated staging image bump to ${GITHUB_SHA}."
+          gh pr merge "$BRANCH" --auto --merge
