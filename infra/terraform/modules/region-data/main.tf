@@ -22,3 +22,9 @@ resource "digitalocean_database_db" "service" {
   cluster_id = digitalocean_database_cluster.pg.id
   name       = each.value
 }
+
+resource "digitalocean_database_db" "staging" {
+  for_each   = toset(var.service_databases)
+  cluster_id = digitalocean_database_cluster.pg.id
+  name       = "${each.value}_staging"
+}
