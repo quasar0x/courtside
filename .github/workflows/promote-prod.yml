@@ -35,8 +35,8 @@ jobs:
           TAG="${{ steps.tag.outputs.tag }}"
           SHORT="${TAG:0:7}"
           BRANCH="ci/promote-prod-${SHORT}"
-          git config user.name "courtside-ci"
-          git config user.email "ci@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
           for svc in members clubs memberships billing notifications; do
             git add gitops/base/service/values-$svc.yaml

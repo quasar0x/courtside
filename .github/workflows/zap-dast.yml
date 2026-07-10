@@ -7,11 +7,18 @@ jobs:
   zap:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - name: OWASP ZAP baseline scan (staging)
-        uses: zaproxy/action-baseline@v0.12.0
+        run: |
+          mkdir -p zap-out && chmod 777 zap-out
+          docker run --rm --network host \
+            -v "$PWD/zap-out:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t "${{ vars.STAGING_URL }}" -I \
+              -r report.html -w report.md -J report.json \
+              -z "-config replacer.full_list(0).description=host -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=Host -config replacer.full_list(0).regex=false -config replacer.full_list(0).replacement=staging.courtside"
+      - name: Upload ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          target: ${{ vars.STAGING_URL }}
-          fail_action: false
-          allow_issue_writing: false
-          cmd_options: '-z "-config replacer.full_list(0).description=host -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=Host -config replacer.full_list(0).regex=false -config replacer.full_list(0).replacement=staging.courtside"'
+          name: zap-report
+          path: zap-out/
