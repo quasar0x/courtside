@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: us-staging-notifications
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/quasar0x/courtside.git
+    targetRevision: main
+    path: gitops/base/service
+    helm:
+      valueFiles:
+        - values-staging-notifications.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: courtside-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
