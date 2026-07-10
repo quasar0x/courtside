@@ -10,7 +10,7 @@ Courtside is a sports-club membership SaaS serving members in the **United State
 
 Courtside runs **one independent Kubernetes cluster per jurisdiction** on DigitalOcean Kubernetes (DOKS), each paired with an **in-region managed PostgreSQL** database. A single Kubernetes cluster cannot span regions, so residency is achieved with separate regional clusters — not one global cluster. Members are routed to their jurisdiction's cluster at the edge; personal data is written only to that region's database and never crosses a regional boundary.
 
-Every region is identical, provisioned from the same reusable Terraform module and the same GitOps base, differing only in region-specific values (region slug, database endpoint, ingress host). The desired state of the entire estate lives in Git, so it is reproducible and auditable.\
+Every region is identical, provisioned from the same reusable Terraform module and the same GitOps base, differing only in region-specific values (region slug, database endpoint, ingress host). The desired state of the entire estate lives in Git, so it is reproducible and auditable.
 (edge geo-routing — Slice C, roadmap)
                 /            |               \
          US (nyc3)       EU (fra1)        CA (tor1)
@@ -18,7 +18,6 @@ Every region is identical, provisioned from the same reusable Terraform module a
             |               |                |
     managed Postgres  managed Postgres  managed Postgres
      (private VPC)     (private VPC)     (private VPC)
-
 ## 3. Jurisdiction → region → regulation
 
 | Jurisdiction | DO region | Primary regulation(s) | Managed database |
