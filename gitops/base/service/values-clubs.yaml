@@ -6,7 +6,7 @@ env:
   - name: PORT
     value: "8080"
   - name: MEMBERS_URL
-    value: "http://members.courtside:8080"
+    value: "http://members:8080"
   - name: PGHOST
     valueFrom:
       secretKeyRef:
