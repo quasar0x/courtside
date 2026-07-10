@@ -1,0 +1,36 @@
+mode: daemonset
+fullnameOverride: otel-collector
+image:
+  repository: otel/opentelemetry-collector-contrib
+command:
+  name: otelcol-contrib
+service:
+  enabled: true
+presets:
+  logsCollection:
+    enabled: true
+    includeCollectorLogs: false
+  kubernetesAttributes:
+    enabled: true
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+config:
+  exporters:
+    otlp/tempo:
+      endpoint: tempo.monitoring.svc.cluster.local:4317
+      tls:
+        insecure: true
+    otlphttp/loki:
+      endpoint: http://loki.monitoring.svc.cluster.local:3100/otlp
+  service:
+    pipelines:
+      traces:
+        exporters:
+          - otlp/tempo
+      logs:
+        exporters:
+          - otlphttp/loki

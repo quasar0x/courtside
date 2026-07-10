@@ -34,3 +34,5 @@ env:
     value: "memberships"
   - name: KAFKA_BROKER
     value: "kafka.courtside:9092"
+  - name: OTEL_ENDPOINT
+    value: "otel-collector.monitoring:4318"

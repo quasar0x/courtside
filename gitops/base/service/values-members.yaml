@@ -32,3 +32,5 @@ env:
         key: PGSSLMODE
   - name: PGDATABASE
     value: "members"
+  - name: OTEL_ENDPOINT
+    value: "otel-collector.monitoring:4318"
