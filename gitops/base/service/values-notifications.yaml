@@ -9,3 +9,5 @@ env:
     value: "kafka.courtside:9092"
   - name: REDIS_ADDR
     value: "redis.courtside:6379"
+  - name: OTEL_ENDPOINT
+    value: "otel-collector.monitoring:4318"
