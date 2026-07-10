@@ -14,10 +14,4 @@ jobs:
           target: ${{ vars.STAGING_URL }}
           fail_action: false
           allow_issue_writing: false
-          cmd_options: >-
-            -config replacer.full_list(0).description=host
-            -config replacer.full_list(0).enabled=true
-            -config replacer.full_list(0).matchtype=REQ_HEADER
-            -config replacer.full_list(0).matchstr=Host
-            -config replacer.full_list(0).regex=false
-            -config replacer.full_list(0).replacement=staging.courtside
+          cmd_options: '-z "-config replacer.full_list(0).description=host -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=Host -config replacer.full_list(0).regex=false -config replacer.full_list(0).replacement=staging.courtside"'
