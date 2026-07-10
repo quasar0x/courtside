@@ -78,8 +78,8 @@ jobs:
         run: |
           SHORT="${GITHUB_SHA:0:7}"
           BRANCH="ci/promote-staging-${SHORT}"
-          git config user.name "courtside-ci"
-          git config user.email "ci@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git add gitops/base/service/values-staging-*.yaml
           git commit -m "ci: promote ${SHORT} to staging"
