@@ -31,7 +31,7 @@ env:
         name: postgres
         key: PGSSLMODE
   - name: PGDATABASE
-    value: "billing"
+    value: "billing_staging"
   - name: KAFKA_BROKER
     value: "kafka:9092"
   - name: REDIS_ADDR
