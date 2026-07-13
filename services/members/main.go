@@ -245,3 +245,5 @@ func logRequests(next http.Handler) http.Handler {
 			"dur_ms", time.Since(start).Milliseconds())
 	})
 }
+
+// pipeline demo: build marker
