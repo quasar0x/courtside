@@ -1,0 +1,36 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-courtside-signatures
+  annotations:
+    policies.kyverno.io/title: Verify Courtside Image Signatures
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/description: >-
+      Only ghcr.io/quasar0x/courtside-* images carrying a keyless Cosign signature
+      from the CI workflow (GitHub OIDC to Fulcio to Rekor) may run in the courtside
+      and courtside-staging namespaces.
+spec:
+  validationFailureAction: Audit
+  background: false
+  webhookTimeoutSeconds: 30
+  rules:
+    - name: verify-cosign-keyless
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [courtside, courtside-staging]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/quasar0x/courtside-*"
+          mutateDigest: true
+          verifyDigest: true
+          required: true
+          attestors:
+            - count: 1
+              entries:
+                - keyless:
+                    subject: "https://github.com/quasar0x/courtside/.github/workflows/ci.yml@refs/heads/main"
+                    issuer: "https://token.actions.githubusercontent.com"
+                    rekor:
+                      url: https://rekor.sigstore.dev
