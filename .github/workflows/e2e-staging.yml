@@ -1,0 +1,17 @@
+name: e2e-staging
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run e2e smoke against staging
+        env:
+          BASE_URL: ${{ vars.STAGING_URL }}
+          HOST_HEADER: staging.courtside
+        run: |
+          chmod +x tests/e2e/smoke.sh
+          ./tests/e2e/smoke.sh
