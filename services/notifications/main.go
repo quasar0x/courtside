@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -52,7 +53,6 @@ func consume(ctx context.Context, reader *kafka.Reader, rdb *redis.Client) {
 			slog.Error("bad event payload", "err", err)
 			continue
 		}
-
 		key := "notifications:processed:" + ev.EventID
 		firstTime, err := rdb.SetNX(ctx, key, "1", 24*time.Hour).Result()
 		if err != nil {
@@ -63,7 +63,6 @@ func consume(ctx context.Context, reader *kafka.Reader, rdb *redis.Client) {
 			slog.Info("duplicate event skipped", "event_id", ev.EventID)
 			continue
 		}
-
 		n := Notification{
 			MembershipID: ev.MembershipID,
 			MemberID:     ev.MemberID,
@@ -94,14 +93,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	broker := getenv("KAFKA_BROKER", "kafka.courtside:9092")
+	if err := waitForKafka(ctx, broker); err != nil {
+		slog.Error("kafka never became ready", "err", err)
+		os.Exit(1)
+	}
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:     []string{getenv("KAFKA_BROKER", "kafka.courtside:9092")},
+		Brokers:     []string{broker},
 		Topic:       "membership.created",
 		GroupID:     "notifications",
 		StartOffset: kafka.FirstOffset,
 	})
 	defer reader.Close()
-
 	go consume(ctx, reader, rdb)
 
 	port := getenv("PORT", "8080")
@@ -126,9 +129,7 @@ func main() {
 		}
 		writeJSON(w, http.StatusOK, out)
 	})
-
 	srv := &http.Server{Addr: ":" + port, Handler: logRequests(mux), ReadHeaderTimeout: 5 * time.Second}
-
 	go func() {
 		slog.Info("notifications service listening", "port", port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -136,7 +137,6 @@ func main() {
 			os.Exit(1)
 		}
 	}()
-
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
 	<-stop
@@ -156,6 +156,23 @@ func waitForRedis(ctx context.Context, rdb *redis.Client) error {
 		time.Sleep(2 * time.Second)
 	}
 	return errors.New("timed out waiting for redis")
+}
+
+func waitForKafka(ctx context.Context, broker string) error {
+	for i := 0; i < 30; i++ {
+		conn, err := net.DialTimeout("tcp", broker, 3*time.Second)
+		if err == nil {
+			_ = conn.Close()
+			return nil
+		}
+		slog.Info("waiting for kafka...", "attempt", i+1, "broker", broker)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
+	}
+	return errors.New("timed out waiting for kafka")
 }
 
 func getenv(k, def string) string {
