@@ -6,8 +6,23 @@ on:
         description: "Build SHA to promote (blank = current staging build)"
         required: false
         default: ""
+permissions:
+  contents: read
 jobs:
+  e2e-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: e2e smoke against staging (promotion gate)
+        env:
+          BASE_URL: ${{ vars.STAGING_URL }}
+          HOST_HEADER: staging.courtside
+        run: |
+          chmod +x tests/e2e/smoke.sh
+          ./tests/e2e/smoke.sh
+
   promote:
+    needs: e2e-gate
     runs-on: ubuntu-latest
     environment: production
     steps:
