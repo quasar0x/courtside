@@ -2,6 +2,8 @@ module github.com/quasar0x/courtside
 
 go 1.25.0
 
+toolchain go1.25.13
+
 require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/redis/go-redis/v9 v9.22.0
