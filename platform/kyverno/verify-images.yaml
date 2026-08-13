@@ -10,7 +10,7 @@ metadata:
       from the CI workflow (GitHub OIDC to Fulcio to Rekor) may run in the courtside
       and courtside-staging namespaces.
 spec:
-  validationFailureAction: Audit
+  validationFailureAction: Enforce
   background: false
   webhookTimeoutSeconds: 30
   rules:
@@ -23,7 +23,7 @@ spec:
       verifyImages:
         - imageReferences:
             - "ghcr.io/quasar0x/courtside-*"
-          mutateDigest: false
+          mutateDigest: true
           verifyDigest: true
           required: true
           attestors:
