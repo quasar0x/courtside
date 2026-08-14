@@ -4,6 +4,9 @@ on:
     branches: [main]
 permissions:
   contents: read
+env:
+  GOTOOLCHAIN: go1.25.13
+
 jobs:
   lint:
     name: Lint (gofmt, go vet)
