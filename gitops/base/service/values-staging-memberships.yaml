@@ -2,6 +2,7 @@ name: memberships
 image:
   repository: ghcr.io/quasar0x/courtside-memberships
   tag: "5784f7b1c5bc2943fdf69629da6db006ad772df2"
+  digest: ""
 env:
   - name: PORT
     value: "8080"

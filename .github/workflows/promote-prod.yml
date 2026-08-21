@@ -38,10 +38,14 @@ jobs:
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Promoting build: $TAG"
-      - name: Bump prod image tags
+      - name: Bump prod image tags + digests
         run: |
+          OWNER="${{ github.repository_owner }}"
+          TAG="${{ steps.tag.outputs.tag }}"
           for svc in members clubs memberships billing notifications; do
-            sed -i "s|^  tag: .*|  tag: \"${{ steps.tag.outputs.tag }}\"|" gitops/base/service/values-$svc.yaml
+            DIGEST=$(docker buildx imagetools inspect "ghcr.io/${OWNER}/courtside-${svc}:${TAG}" --format '{{.Manifest.Digest}}')
+            sed -i "s|^  tag: .*|  tag: \"${TAG}\"|" gitops/base/service/values-${svc}.yaml
+            sed -i "s|^  digest: .*|  digest: \"${DIGEST}\"|" gitops/base/service/values-${svc}.yaml
           done
       - name: Open auto-merge prod promotion PR
         env:
