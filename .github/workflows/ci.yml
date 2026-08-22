@@ -66,10 +66,13 @@ jobs:
       - uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITOPS_PAT }}
-      - name: Bump staging image tags to this build
+      - name: Bump staging image tags + digests to this build
         run: |
+          OWNER="${{ github.repository_owner }}"
           for svc in members clubs memberships billing notifications; do
-            sed -i "s|^  tag: .*|  tag: \"${GITHUB_SHA}\"|" gitops/base/service/values-staging-$svc.yaml
+            DIGEST=$(docker buildx imagetools inspect "ghcr.io/${OWNER}/courtside-${svc}:${GITHUB_SHA}" --format '{{.Manifest.Digest}}')
+            sed -i "s|^  tag: .*|  tag: \"${GITHUB_SHA}\"|" gitops/base/service/values-staging-${svc}.yaml
+            sed -i "s|^  digest: .*|  digest: \"${DIGEST}\"|" gitops/base/service/values-staging-${svc}.yaml
           done
       - name: Open auto-merge promotion PR
         env:

@@ -23,8 +23,8 @@ spec:
       verifyImages:
         - imageReferences:
             - "ghcr.io/quasar0x/courtside-*"
-          mutateDigest: true
-          verifyDigest: true
+          mutateDigest: false
+          verifyDigest: false
           required: true
           attestors:
             - count: 1

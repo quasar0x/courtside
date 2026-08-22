@@ -3,6 +3,7 @@ name: placeholder
 image:
   repository: ""
   tag: "latest"
+  digest: ""
   pullPolicy: IfNotPresent
 replicas: 1
 port: 8080
