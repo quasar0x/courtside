@@ -24,7 +24,7 @@ spec:
         - imageReferences:
             - "ghcr.io/quasar0x/courtside-*"
           mutateDigest: false
-          verifyDigest: false
+          verifyDigest: true
           required: true
           attestors:
             - count: 1
