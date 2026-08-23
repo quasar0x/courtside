@@ -35,3 +35,26 @@ variable "max_nodes" {
   type        = number
   default     = 3
 }
+
+variable "kafka_version" {
+  type    = string
+  default = "3.9"
+}
+variable "kafka_size" {
+  description = "Managed Kafka node size slug"
+  type        = string
+  default     = "db-s-2vcpu-4gb"
+}
+variable "valkey_version" {
+  type    = string
+  default = "8"
+}
+variable "valkey_size" {
+  type    = string
+  default = "db-s-1vcpu-1gb"
+}
+variable "valkey_node_count" {
+  description = "1 = single node w/ auto-failover; 2 = HA standby"
+  type        = number
+  default     = 1
+}

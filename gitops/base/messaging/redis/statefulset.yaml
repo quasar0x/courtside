@@ -1,10 +1,11 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: redis
   labels:
     app: redis
 spec:
+  serviceName: redis-headless
   replicas: 1
   selector:
     matchLabels:
@@ -20,13 +21,21 @@ spec:
         runAsNonRoot: true
         runAsUser: 999
         runAsGroup: 999
+        fsGroup: 999 # ← lets redis (uid 999) write to the block volume
       containers:
         - name: redis
           image: redis:7-alpine
-          args: ["--save", "", "--appendonly", "no"]
+          args:
+            - "--appendonly"
+            - "yes" # ← AOF persistence ON (was: --save "" --appendonly no)
+            - "--dir"
+            - "/data"
           ports:
             - name: redis
               containerPort: 6379
+          volumeMounts:
+            - name: data
+              mountPath: /data
           readinessProbe:
             exec:
               command: ["redis-cli", "ping"]
@@ -43,3 +52,12 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: do-block-storage
+        resources:
+          requests:
+            storage: 1Gi

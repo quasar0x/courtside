@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +17,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	kafka "github.com/segmentio/kafka-go"
+	"github.com/segmentio/kafka-go/sasl/scram"
 )
 
 type MembershipCreated struct {
@@ -86,7 +89,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	rdb := redis.NewClient(&redis.Options{Addr: getenv("REDIS_ADDR", "redis.courtside:6379")})
+	rdb := redis.NewClient(redisOptions())
 	defer rdb.Close()
 	if err := waitForRedis(ctx, rdb); err != nil {
 		slog.Error("redis never became ready", "err", err)
@@ -103,6 +106,7 @@ func main() {
 		Topic:       "membership.created",
 		GroupID:     "notifications",
 		StartOffset: kafka.FirstOffset,
+		Dialer:      kafkaDialer(),
 	})
 	defer reader.Close()
 	go consume(ctx, reader, rdb)
@@ -194,4 +198,41 @@ func logRequests(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 		slog.Info("request", "method", r.Method, "path", r.URL.Path, "dur_ms", time.Since(start).Milliseconds())
 	})
+}
+
+func tlsFromCAEnv(envKey string) *tls.Config {
+	pem := os.Getenv(envKey)
+	if pem == "" {
+		return nil
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM([]byte(pem)) {
+		slog.Error("failed to parse CA cert", "env", envKey)
+		os.Exit(1)
+	}
+	return &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
+}
+
+func kafkaDialer() *kafka.Dialer {
+	d := &kafka.Dialer{Timeout: 10 * time.Second, DualStack: true}
+	if user := os.Getenv("KAFKA_USER"); user != "" {
+		mech, err := scram.Mechanism(scram.SHA256, user, os.Getenv("KAFKA_PASSWORD"))
+		if err != nil {
+			slog.Error("kafka scram init", "err", err)
+			os.Exit(1)
+		}
+		d.SASLMechanism = mech
+		d.TLS = tlsFromCAEnv("KAFKA_CA_PEM")
+	}
+	return d
+}
+
+func redisOptions() *redis.Options {
+	opt := &redis.Options{Addr: getenv("REDIS_ADDR", "redis.courtside:6379")}
+	if pw := os.Getenv("REDIS_PASSWORD"); pw != "" {
+		opt.Username = getenv("REDIS_USER", "default")
+		opt.Password = pw
+		opt.TLSConfig = tlsFromCAEnv("REDIS_CA_PEM")
+	}
+	return opt
 }

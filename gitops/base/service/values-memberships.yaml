@@ -34,6 +34,24 @@ env:
   - name: PGDATABASE
     value: "memberships"
   - name: KAFKA_BROKER
-    value: "kafka:9092"
+    valueFrom:
+      secretKeyRef:
+        name: kafka
+        key: KAFKA_BROKER
+  - name: KAFKA_USER
+    valueFrom:
+      secretKeyRef:
+        name: kafka
+        key: KAFKA_USER
+  - name: KAFKA_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: kafka
+        key: KAFKA_PASSWORD
+  - name: KAFKA_CA_PEM
+    valueFrom:
+      secretKeyRef:
+        name: kafka
+        key: KAFKA_CA_PEM
   - name: OTEL_ENDPOINT
     value: "otel-collector.monitoring:4318"

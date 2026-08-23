@@ -7,8 +7,44 @@ env:
   - name: PORT
     value: "8080"
   - name: KAFKA_BROKER
-    value: "kafka:9092"
+    valueFrom:
+      secretKeyRef:
+        name: kafka
+        key: KAFKA_BROKER
+  - name: KAFKA_USER
+    valueFrom:
+      secretKeyRef:
+        name: kafka
+        key: KAFKA_USER
+  - name: KAFKA_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: kafka
+        key: KAFKA_PASSWORD
+  - name: KAFKA_CA_PEM
+    valueFrom:
+      secretKeyRef:
+        name: kafka
+        key: KAFKA_CA_PEM
   - name: REDIS_ADDR
-    value: "redis:6379"
+    valueFrom:
+      secretKeyRef:
+        name: valkey
+        key: REDIS_ADDR
+  - name: REDIS_USER
+    valueFrom:
+      secretKeyRef:
+        name: valkey
+        key: REDIS_USER
+  - name: REDIS_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: valkey
+        key: REDIS_PASSWORD
+  - name: REDIS_CA_PEM
+    valueFrom:
+      secretKeyRef:
+        name: valkey
+        key: REDIS_CA_PEM
   - name: OTEL_ENDPOINT
     value: "otel-collector.monitoring:4318"
