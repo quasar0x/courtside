@@ -1,8 +1,8 @@
 name: clubs
 image:
   repository: ghcr.io/quasar0x/courtside-clubs
-  tag: "9c3d7540c6430be7d1bd591fbee95ae88fecc874"
-  digest: "sha256:84c7bee0545d7603628bdff5dad9185742921cd0dcf44c2728bfcd5e402c627b"
+  tag: "510889787cd6536703bfee8ffbc547b19fc17247"
+  digest: "sha256:0e1539f26a647527725b341efa4c1e6bb05d80cd0391112372176ceb5071aee5"
 env:
   - name: PORT
     value: "8080"

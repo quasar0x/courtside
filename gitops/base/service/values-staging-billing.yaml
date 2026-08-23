@@ -1,8 +1,8 @@
 name: billing
 image:
   repository: ghcr.io/quasar0x/courtside-billing
-  tag: "9c3d7540c6430be7d1bd591fbee95ae88fecc874"
-  digest: "sha256:96abece423c6f314553a59ca633fc7ab84c765924e6e2db110c825801adb6e02"
+  tag: "510889787cd6536703bfee8ffbc547b19fc17247"
+  digest: "sha256:ac874fd873bfe8fe45201a2949299bfda87544833dfde7ee974e3c3938db5e1d"
 env:
   - name: PORT
     value: "8080"
