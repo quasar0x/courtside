@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -17,6 +19,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	kafka "github.com/segmentio/kafka-go"
+	"github.com/segmentio/kafka-go/sasl/scram"
 )
 
 type Membership struct {
@@ -94,11 +97,21 @@ func (s *store) list(ctx context.Context) ([]Membership, error) {
 type publisher struct{ w *kafka.Writer }
 
 func newPublisher(broker string) *publisher {
-	return &publisher{w: &kafka.Writer{
-		Addr:     kafka.TCP(broker),
-		Topic:    "membership.created",
-		Balancer: &kafka.LeastBytes{},
-	}}
+	w := &kafka.Writer{
+		Addr:         kafka.TCP(broker),
+		Topic:        "membership.created",
+		Balancer:     &kafka.LeastBytes{},
+		RequiredAcks: kafka.RequireAll,
+	}
+	if user := os.Getenv("KAFKA_USER"); user != "" {
+		mech, err := scram.Mechanism(scram.SHA256, user, os.Getenv("KAFKA_PASSWORD"))
+		if err != nil {
+			slog.Error("kafka scram init", "err", err)
+			os.Exit(1)
+		}
+		w.Transport = &kafka.Transport{SASL: mech, TLS: tlsFromCAEnv("KAFKA_CA_PEM")}
+	}
+	return &publisher{w: w}
 }
 
 func (p *publisher) publish(ctx context.Context, ev MembershipCreated) error {
@@ -257,4 +270,17 @@ func logRequests(next http.Handler) http.Handler {
 		slog.Info("request", "method", r.Method, "path", r.URL.Path,
 			"dur_ms", time.Since(start).Milliseconds())
 	})
+}
+
+func tlsFromCAEnv(envKey string) *tls.Config {
+	pem := os.Getenv(envKey)
+	if pem == "" {
+		return nil
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM([]byte(pem)) {
+		slog.Error("failed to parse CA cert", "env", envKey)
+		os.Exit(1)
+	}
+	return &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
 }

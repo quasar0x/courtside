@@ -8,10 +8,9 @@ spec:
   source:
     repoURL: https://github.com/quasar0x/courtside.git
     targetRevision: main
-    path: gitops/base/config
+    path: gitops/base/messaging
     directory:
       recurse: true
-      exclude: 'istio/*'
   destination:
     server: https://kubernetes.default.svc
     namespace: courtside-staging

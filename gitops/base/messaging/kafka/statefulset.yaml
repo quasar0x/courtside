@@ -1,13 +1,12 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: kafka
   labels:
     app: kafka
 spec:
+  serviceName: kafka-headless
   replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app: kafka
@@ -60,7 +59,7 @@ spec:
               value: "/var/lib/kafka/data"
           volumeMounts:
             - name: data
-              mountPath: /var/lib/kafka/data
+              mountPath: /var/lib/kafka # ← mount the PARENT, not /data (see note)
           readinessProbe:
             tcpSocket:
               port: 9092
@@ -73,6 +72,12 @@ spec:
             limits:
               cpu: "1"
               memory: 1Gi
-      volumes:
-        - name: data
-          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: do-block-storage
+        resources:
+          requests:
+            storage: 5Gi
