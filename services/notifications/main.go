@@ -201,14 +201,12 @@ func logRequests(next http.Handler) http.Handler {
 }
 
 func tlsFromCAEnv(envKey string) *tls.Config {
-	pem := os.Getenv(envKey)
-	if pem == "" {
-		return nil
+	pool, _ := x509.SystemCertPool()
+	if pool == nil {
+		pool = x509.NewCertPool()
 	}
-	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM([]byte(pem)) {
-		slog.Error("failed to parse CA cert", "env", envKey)
-		os.Exit(1)
+	if pem := os.Getenv(envKey); pem != "" {
+		pool.AppendCertsFromPEM([]byte(pem))
 	}
 	return &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
 }
