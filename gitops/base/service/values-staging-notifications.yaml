@@ -1,8 +1,8 @@
 name: notifications
 image:
   repository: ghcr.io/quasar0x/courtside-notifications
-  tag: "510889787cd6536703bfee8ffbc547b19fc17247"
-  digest: "sha256:e56cb5e55a977a13c61a2e273fa8d125e5e9333d45f91df4723f2d152243ffc9"
+  tag: "c11b6e4d969d91f86b64204c2e74c06e43ea18c3"
+  digest: "sha256:e5cb66690fb022b5879968246eb9370b1d57edee3a6ab894a8cf4fbd44736917"
 env:
   - name: PORT
     value: "8080"
