@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  pilot-dashboard.json: '404: Not Found'
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    grafana_dashboard: "1"
+  name: pilot-dashboard
+  namespace: monitoring

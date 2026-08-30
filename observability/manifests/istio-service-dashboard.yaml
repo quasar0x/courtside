@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  istio-service-dashboard.json: '404: Not Found'
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    grafana_dashboard: "1"
+  name: istio-service-dashboard
+  namespace: monitoring
